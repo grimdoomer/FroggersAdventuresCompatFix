@@ -12,6 +12,11 @@ void * uiInitProcHookAddress = (void*)0x4128A1;
 void * uiInitDispatchWorkerAddress = (void*)0x4127E0;
 void * uiInitDoWorkAddress = (void*)0x412847;
 
+void(__cdecl *MusicTick)() = (void(__cdecl*)())0x41DBD7;
+DWORD g_SoundState = 0;
+
+void(__cdecl *MainMenuUpdate)(WORD procId) = (void(__cdecl*)(WORD))0x4DA72E;
+
 // Require for detours.
 void __declspec(dllexport) DummyExport()
 {
@@ -45,6 +50,26 @@ void __declspec(naked) Hook_uiInitProc()
 	}
 }
 
+void __cdecl Hook_MusicTick()
+{
+	// If the sound state counter has reached the correct state update music.
+	if (g_SoundState >= 2)
+	{
+		// Call the trampoline.
+		MusicTick();
+	}
+}
+
+void __cdecl Hook_MainMenuUpdate(WORD procId)
+{
+	// Check if we need to update the sound state.
+	if (g_SoundState < 2)
+		g_SoundState++;
+
+	// Call the trampoline.
+	MainMenuUpdate(procId);
+}
+
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -69,6 +94,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 		// Hook the ui worker dispatch function to call the worker routine directly.
 		DetourAttach((void**)&uiInitDispatchWorkerAddress, uiInitDoWorkAddress);
+
+		// Hook the main menu and music update functions.
+		DetourAttach((void**)&MusicTick, Hook_MusicTick);
+		DetourAttach((void**)&MainMenuUpdate, Hook_MainMenuUpdate);
 
 		// Setup hooks.
 		huProc_InstallHooks();
