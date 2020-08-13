@@ -99,6 +99,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		DetourAttach((void**)&MusicTick, Hook_MusicTick);
 		DetourAttach((void**)&MainMenuUpdate, Hook_MainMenuUpdate);
 
+		// Force the game to cap at 60FPS to fix animations from playing too quickly.
+		BYTE abMovEax0[5] = { 0xB8, 0x00, 0x00, 0x00, 0x00 };
+		DetourCopyInstruction((void*)0x41D69D, nullptr, abMovEax0, nullptr, nullptr);
+
 		// Setup hooks.
 		huProc_InstallHooks();
 
