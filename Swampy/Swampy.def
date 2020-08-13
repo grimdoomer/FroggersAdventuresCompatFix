@@ -1,0 +1,4 @@
+LIBRARY Swampy
+
+EXPORTS
+	DummyExport @1
