@@ -157,7 +157,7 @@ _func_end_3:
 %define MusicTick 0041DBD7h
 %define MainMenuUpdate 004DA72Eh
 %define CheckIfGameCanStart 0040D76Dh
-%define FUN_0041303e 0041303Eh ; Seems like it just releases a sephamore. Doesn't matter, what it does, we're moving the instruction to call the function though.
+%define FUN_0041303e 0041303Eh ; Seems like it just releases a sephamore. Doesn't matter what it does, we're just moving the CALL instruction.
 
 %define g_MainThreadId 02139A9Ch ; The memory location we're using to store the main thread id.
 %define g_SoundState 02139A98h ; The memory we use to store if we should be ticking sound or not.
@@ -460,7 +460,7 @@ _enable_hookmusic_start: ; This code does indeed replace existing code. There ar
 	farcall(get_our_func_ptr(Hook_MusicTick))
 	farcall(FUN_0041303e)
 _enable_hookmusic_nop:
-	dummy_code_to(MusicHookTickEnabler, 005383C3h, _enable_hookmusic_start, _enable_hookmusic_nop)
+	dummy_code_to(MusicHookTickEnabler, 5383C3h, _enable_hookmusic_start, _enable_hookmusic_nop)
 _enable_hookmusic_end:
 
 ; Calls SetupMainThreadId on setup.

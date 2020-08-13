@@ -31,5 +31,4 @@ Authors:
  - Kneesnap (Detours Patch, Assembly Patch / Patched Exe)
 
 Future Wants:  
- - A delta-time fix that doesn't involve locking the framerate to 60FPS. It seems like the higher the framerate, the more broken things get. (See: The catfish in level 1 running at 250FPS vs 650FPS) The 60FPS cap has noticeable stutter when compared to the uncapped version, even if it's minor.  
- - 
+ - A delta-time fix that doesn't involve locking the framerate to 60FPS. It seems like the higher the framerate, the more broken things get. (See: The catfish in level 1 running at 250FPS vs 650FPS) The 60FPS cap has noticeable stutter when compared to the uncapped version, even if it's minor.
