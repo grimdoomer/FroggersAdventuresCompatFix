@@ -29,3 +29,7 @@ Pull requests are welcome, if you have anything to contribute.
 Authors:
  - Grimdoomer (Figuring out why the game didn't work, Detours Patch, XePatcher, x86 Guru)
  - Kneesnap (Detours Patch, Assembly Patch / Patched Exe)
+
+Future Wants:  
+ - A delta-time fix that doesn't involve locking the framerate to 60FPS. It seems like the higher the framerate, the more broken things get. (See: The catfish in level 1 running at 250FPS vs 650FPS) The 60FPS cap has noticeable stutter when compared to the uncapped version, even if it's minor.  
+ - 
