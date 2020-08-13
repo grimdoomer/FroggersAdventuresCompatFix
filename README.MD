@@ -14,6 +14,7 @@ This is the patch that your average person (who just wants to play the game) sho
 It's a conversion of the detours patch, but made to be just a simple drag and drop fix.  
 This is easier/more intuitive for the user, but it's harder for us to work with, since we're writing it in x86 Assembly.  
 The source code is contained in a single file, [Frogger.asm](https://github.com/grimdoomer/FroggersAdventuresCompatFix/blob/master/Frogger.asm).  
+In order to apply this patch, you will need to use [XePatcher](https://web.archive.org/web/20200813054545/http://icode4.coffee/files/XePatcher_2.7.zip)
 
 **Detours Patch:**  
 This patch will likely be more useful for developers, or anyone who wants to make changes.  
