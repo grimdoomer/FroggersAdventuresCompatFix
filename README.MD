@@ -3,7 +3,7 @@ This is an unofficial patch for Frogger's Adventures to fix Windows XP SP3/Vista
 More specifically, any computer which had received an update after approximately 2007/2008 was unable to run this game.  
 
 ## Screenshot
-![It works!](https://raw.githubusercontent.com/grimdoomer/FroggersAdventuresCompatFix/master/_repo/screenshot.png)
+![](/_repo/screenshot.png)
 
 ## Information
 For information regarding how these patches actually fix the game, read the source code.  
