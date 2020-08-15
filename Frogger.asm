@@ -157,11 +157,17 @@ _func_end_3:
 %define MusicTick 0041DBD7h
 %define MainMenuUpdate 004DA72Eh
 %define CheckIfGameCanStart 0040D76Dh
-%define FUN_0041303e 0041303Eh ; Seems like it just releases a sephamore. Doesn't matter what it does, we're just moving the CALL instruction.
+%define CalculateDeltaTime 0041D697h
 
-%define g_MainThreadId 02139A9Ch ; The memory location we're using to store the main thread id.
+%define PreLogicUpdate 0041BF9Dh ; These functions are used in the main loop.
+%define GameRenderUpdate 0041D7C4h
+%define FUN_0041303e 0041303Eh
+
 %define g_SoundState 02139A98h ; The memory we use to store if we should be ticking sound or not.
+%define g_MainThreadId 02139A9Ch ; The memory location we're using to store the main thread id.
 %define g_huProcCurrentTask 0213F184h ; The pointer to the current task.
+%define g_DeltaTime 0213F180h
+%define g_DeltaTimeCounter 0213F16Ch
 
 %define NewCodeBlockStart 005BE454h
 
@@ -169,6 +175,51 @@ dd NewCodeBlockStart - ExecutableBaseAddress
 dd (_new_code_end - _new_code_start)
 _new_code_start:
 
+Hook_MainLoop:
+; This is a slightly modified recreation of the main loop.
+	push ebp
+	mov ebp, esp
+	
+	; g_DeltaTimeCounter += g_DeltaTime;
+	fld dword [g_DeltaTimeCounter]
+	fadd dword [g_DeltaTime] ; TODO: Have to use this timer as the comparison.
+	fst dword [g_DeltaTimeCounter]
+	
+	; if (g_DeltaTimeCounter < 1000 / 60) (If there's been enough time for the next update. 60 updates a second.)
+	fcomp dword [0x005bf580] ; This is the pointer to where the game keeps the value of how much time an update should take.
+	fnstsw ax ; Yeah I barely understand how this tests if the value is smaller either.
+	test ah, 5h
+	jnp _loop_skip_worker
+	
+	push dword [g_DeltaTime] ; Preserve the per-frame delta-time for later, because updating the frame will need that value.
+	mov eax, dword [g_DeltaTimeCounter]
+	mov dword [g_DeltaTime], eax
+	mov dword [g_DeltaTimeCounter], 0 ; Reset delta-time counter.
+	
+	farcall(PreLogicUpdate) ; Seems to do certain tasks like keyboard update.
+	
+	push 0x1
+	farcall(huProc_TaskWorker)
+	add esp, 0x4
+	
+	; Restore original g_DeltaTime
+	pop eax
+	mov dword [g_DeltaTime], eax
+	
+_loop_skip_worker:
+
+	push 0x1
+	farcall(GameRenderUpdate)
+	add esp, 0x4
+	
+	call Hook_MusicTick
+	farcall(FUN_0041303e) ; Releases some sephamore.
+	
+	mov esp, ebp
+	pop ebp
+	ret
+
+align 4, db 0
 Hook_huProc_TaskCreate:
 ; This overwrites a function which was called before, but was empty. It sets up a worker thread for a given task.
 	push ebp
@@ -309,6 +360,7 @@ SetupMainThreadId:
 	mov ebp, esp
 	
 	mov dword [g_SoundState], 0
+	mov dword [g_DeltaTimeCounter], 0 ; Reset delta-time counter.
 	
 	call dword [GetCurrentThreadId]
 	mov dword [g_MainThreadId], eax
@@ -441,28 +493,6 @@ _destroy_hook_nop_start:
 	dummy_code_to(41C6B0h, 41C6BCh, _destroy_hook_start, _destroy_hook_nop_start)
 _destroy_hook_end:
 
-
-
-; Enables the FPS-cap that limits the framerate to 60FPS.
-dd 41D69Dh - ExecutableBaseAddress
-dd (_enable_fpscap_end - _enable_fpscap_start)
-_enable_fpscap_start:
-    mov eax, 00000000h
-_enable_fps_nop_start:
-	dummy_code_to(41D69Dh, 41D6A2h, _enable_fpscap_start, _enable_fps_nop_start)
-_enable_fpscap_end:
-
-; Enables the MusicTick hook by replacing the call to MusicTick.
-%define MusicHookTickEnabler 5383B4h
-dd MusicHookTickEnabler - ExecutableBaseAddress
-dd (_enable_hookmusic_end - _enable_hookmusic_start)
-_enable_hookmusic_start: ; This code does indeed replace existing code. There are 3 call instructions, which it replaces with two. However, one of them calls a function which literally does nothing, so we can overwrite it.
-	farcall(get_our_func_ptr(Hook_MusicTick))
-	farcall(FUN_0041303e)
-_enable_hookmusic_nop:
-	dummy_code_to(MusicHookTickEnabler, 5383C3h, _enable_hookmusic_start, _enable_hookmusic_nop)
-_enable_hookmusic_end:
-
 ; Calls SetupMainThreadId on setup.
 dd CheckIfGameCanStart - ExecutableBaseAddress
 dd (_enable_setup_end - _enable_setup_start)
@@ -496,6 +526,50 @@ huProc_TaskWorker_callhook_start:
 huProc_Taskworker_nop3_start:
 	dummy_code_to(huProc_TaskWorker_Start2, 41CA07h, huProc_TaskWorker_callhook_start, huProc_Taskworker_nop3_start)
 huProc_TaskWorker_callhook_end:
+
+; Frame-rate / Game Timer Fixes:
+; Allows the game to run at an uncapped frame-rate.
+
+; Ensures the the FPS-cap is disabled.
+dd 41D69Dh - ExecutableBaseAddress
+dd (_enable_fpscap_end - _enable_fpscap_start)
+_enable_fpscap_start:
+    mov eax, 00000001h
+_enable_fps_nop_start:
+	dummy_code_to(41D69Dh, 41D6A2h, _enable_fpscap_start, _enable_fps_nop_start)
+_enable_fpscap_end:
+
+; The game is weird.
+; It was totally built in a way which could have made it run with no frame limit with minimal code changes, and it looks like they wanted to make the game work that way.
+; In fact, the previous game, Frogger Beyond, did work without a frame limit just fine, and it was made by the same team.
+; This makes me think the game's delta-time handling just wasn't tested and they forgot to finish it.
+; This code here (Along with some changes in Hook_MainLoop) allow the game to run perfect above 60FPS.
+; It's very likely the game would break at over 1000FPS, but mainly because it has an upper limit. I should remove that upper limit later.
+; 1000FPS is way beyond anything we need to support though, so it's probably fine, people can limit to 1000 FPS if they really want.
+; I think the theoretical limit for the game working is when a 32-bit float single stops being precise enough to accurately handle the time each frame is taking.
+; However, this is quite beyond the limit of what the human eye can see (hell, 1000FPS is way past that) so it certainly doesn't matter.
+
+; The idea of the fix here is that the game does track delta-time, it's just that it needs to only run the update function 60 times a second, when it can run the render function unlimited times per second.
+; So, we just switch out which delta-time is used depending on which function we call, and limit the number of times update can be called.
+; I'm actually amazed it was this simple.
+
+%define MainLoop_HookerStart 538396h
+dd MainLoop_HookerStart - ExecutableBaseAddress
+dd (_mainloop_hooker_end - _mainloop_hooker_start)
+_mainloop_hooker_start:
+	farcall(get_our_func_ptr(Hook_MainLoop))
+_mainloop_hooker_nop:
+	dummy_code_to(MainLoop_HookerStart, 5383C3h, _mainloop_hooker_start, _mainloop_hooker_nop)
+_mainloop_hooker_end:
+
+
+; This disables some code which writes to an unused delta counter variable. We're going to hijack this variable and use it for our delta-time counter, but to do this we gotta remove this code here which would interfere with our value. (The variable in question is g_DeltaTimeCounter)
+%define DeltaTimeOverwriteVar 41D78Ah
+dd DeltaTimeOverwriteVar - ExecutableBaseAddress
+dd (_perf_disableoldctr_end - _perf_disableoldctr_start)
+_perf_disableoldctr_start:
+	dummy_code_to(DeltaTimeOverwriteVar, 41D7A9h, _perf_disableoldctr_start, _perf_disableoldctr_start)
+_perf_disableoldctr_end:
 
 ; ////////////////////////////////////////////////////////
 ; //////////////////// End of file ///////////////////////
