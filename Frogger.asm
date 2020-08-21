@@ -182,11 +182,11 @@ Hook_MainLoop:
 	
 	; g_DeltaTimeCounter += g_DeltaTime;
 	fld dword [g_DeltaTimeCounter]
-	fadd dword [g_DeltaTime] ; TODO: Have to use this timer as the comparison.
+	fadd dword [g_DeltaTime]
 	fst dword [g_DeltaTimeCounter]
 	
 	; if (g_DeltaTimeCounter < 1000 / 60) (If there's been enough time for the next update. 60 updates a second.)
-	fcomp dword [0x005bf580] ; This is the pointer to where the game keeps the value of how much time an update should take.
+	fcomp dword [005BF580h] ; This is the pointer to where the game keeps the value of how much time an update should take.
 	fnstsw ax ; Yeah I barely understand how this tests if the value is smaller either.
 	test ah, 5h
 	jnp _loop_skip_worker
@@ -536,18 +536,29 @@ dd (_enable_fpscap_end - _enable_fpscap_start)
 _enable_fpscap_start:
     mov eax, 00000001h
 _enable_fps_nop_start:
-	dummy_code_to(41D69Dh, 41D6A2h, _enable_fpscap_start, _enable_fps_nop_start)
+	dummy_code_to(41D69Dh, 41D6A2h, _enable_fpscap_start, _enable_fps_nop_start) ; Make sure we got rid of the entire instruction that was here before.
 _enable_fpscap_end:
+
+; Disables a limit which would make the make run too fast past 1000 FPS.
+; Theoretically the game may experience issues the closer the frame value gets to the maximum digits a floating point number can store, however if that ever happens (it probably won't) just use a FPS cap.
+; The FPS cap can be enabled in the block above by changing eax to 0 instead of 1.
+; The patch is compatible with doing that.
+%define DisableMaxFPSStart 41D76Bh
+dd DisableMaxFPSStart - ExecutableBaseAddress
+dd (_disable_maxfps_end - _disable_maxfps_start)
+_disable_maxfps_start:
+	dummy_code_to(DisableMaxFPSStart, 41D782h, _disable_maxfps_start, _disable_maxfps_start)
+_disable_maxfps_end:
 
 ; The game is weird.
 ; It was totally built in a way which could have made it run with no frame limit with minimal code changes, and it looks like they wanted to make the game work that way.
 ; In fact, the previous game, Frogger Beyond, did work without a frame limit just fine, and it was made by the same team.
 ; This makes me think the game's delta-time handling just wasn't tested and they forgot to finish it.
-; This code here (Along with some changes in Hook_MainLoop) allow the game to run perfect above 60FPS.
-; It's very likely the game would break at over 1000FPS, but mainly because it has an upper limit. I should remove that upper limit later.
-; 1000FPS is way beyond anything we need to support though, so it's probably fine, people can limit to 1000 FPS if they really want.
-; I think the theoretical limit for the game working is when a 32-bit float single stops being precise enough to accurately handle the time each frame is taking.
-; However, this is quite beyond the limit of what the human eye can see (hell, 1000FPS is way past that) so it certainly doesn't matter.
+; This code here (Along with some changes in Hook_MainLoop) allow the game to run properly above 60FPS.
+
+; However, there are some known issues which is why we don't enable this by default for releases.
+; - Lighting in the fire levels doesn't render every frame. My guess is they decided to make the lighting render in an update function somewhere.
+; - Fire boss lightning doesn't get shown at the right position / rotation. It seems it gets stuck? 
 
 ; The idea of the fix here is that the game does track delta-time, it's just that it needs to only run the update function 60 times a second, when it can run the render function unlimited times per second.
 ; So, we just switch out which delta-time is used depending on which function we call, and limit the number of times update can be called.
