@@ -74,10 +74,11 @@ BITS 32
 
 ; ////////////////////////////////////////////////////////
 ; Change the stack alloc function to use malloc.
-; The game normally is allocating memory on the stack, abusing undefined behavior. While this worked in Windows XP SP2, that behavior was no longer functional after that.
-; This is the reason for the first crash.
+; The game normally is allocating memory on the stack to a fixed size buffer. Unfortunately, the problem is that if the stack gets too large, it will 
+; While this worked in Windows XP SP2, the DirectX call stack increased significantly, blowing past the original stack allocation size.
 ; There's no reason it can't be allocated on the heap, so all we do is change it to instead allocate on the heap.
 ; We never cleanup this memory, so technically it's a memory leak, but it's only allocating something like 32 - 96KB once on startup, so it's probably fine.
+; This memory is actually used for something else now. Before, this would be used as stack space. It's repurposed now to contain thread information.
 ; ////////////////////////////////////////////////////////
 dd 0415141h - ExecutableBaseAddress
 dd (_func_end - _func_start)
