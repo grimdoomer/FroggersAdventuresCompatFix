@@ -44,10 +44,11 @@ For NVIDIA graphics cards you can open the NVIDIA Control Panel application and 
 3. Make sure "Enable resolutions not exposed by the display" is checked and click the "Create Custom Resolution" button
 4. Set the new resolution to 640x480 and 32 for color depth
 5. Hit the "Test" button and if everything is okay save your changes
-6. Relaunch the game and it should now start and display properly.
+6. Relaunch the game and it should now start and display properly.  
+
 ![](/_repo/resolution.png)
 
-For other graphics card manufactures please search google for how to add custom resolutions for your card.
+For other graphics card manufactures please refer to google for how to add custom resolutions for your card.
 
 ## Information & Help
 For help or information on this patch, or information regarding data modding, check out both the Highway Frogs [website](http://highwayfrogs.net/) and [discord server](http://discord.gg/GSNCbCN).  
