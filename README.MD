@@ -35,8 +35,23 @@ However, for the average user, the `Assembly Patch` is likely the better option.
 3. Copy `Swampy.dll` and `SwampLauncher.exe` into the game installation folder.  
 4. To run the game, double click `SwampLauncher.exe`.  
 
+## Troubleshooting
+In rare cases the game may fail to start if it can't set your display to 640x480 resolution. This may happen because your graphics card does not have a profile setup for 640x480 resolution. Most modern greaphics cards should have some sort of control panel that will allow you add 640x480 as a custom resolution profile which will allow the game to run correctly.
+
+For NVIDIA graphics cards you can open the NVIDIA Control Panel application and follow these steps:
+1. Click on "Change Resolution" under "Display"
+2. Select your display and click the "Customize" button
+3. Make sure "Enable resolutions not exposed by the display" is checked and click the "Create Custom Resolution" button
+4. Set the new resolution to 640x480 and 32 for color depth
+5. Hit the "Test" button and if everything is okay save your changes
+6. Relaunch the game and it should now start and display properly.
+![](/_repo/resolution.png)
+
+For other graphics card manufactures please search google for how to add custom resolutions for your card.
+
 ## Information & Help
 For help or information on this patch, or information regarding data modding, check out both the Highway Frogs [website](http://highwayfrogs.net/) and [discord server](http://discord.gg/GSNCbCN).  
+For the technical details behind how the patch was developed and what it does, check out [this blog post](https://icode4.coffee/?p=224).  
 Pull requests are welcome, if you have anything to contribute.  
 
 ## Other
