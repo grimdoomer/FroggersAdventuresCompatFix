@@ -15,7 +15,7 @@ It's a conversion of the detours patch, but made to be just a simple drag and dr
 This is easier/more intuitive for the user, but it's harder for us to work with, since we're writing it in x86 Assembly.  
 
 **How to use:**  
-1. Download and extract [this file](https://github.com/grimdoomer/FroggersAdventuresCompatFix/releases/download/1.0.0/Frogger.s.Adventures.Patch.v1.0.0.zip).  
+1. Download and extract [this file](https://github.com/grimdoomer/FroggersAdventuresCompatFix/releases/download/1.0.1/Frogger.s.Adventures.Patch.v1.0.1.zip).  
 2. Find your Frogger installation folder. (Usually `C:\Program Files (x86)\Konami\Frogger's Adventures\`)  
 3. Replace the original `FrogADV.exe` file with the one in the zip file you downloaded.  
 4. Enjoy!
@@ -30,7 +30,7 @@ This patch is in C++, and works by using Detours to have a separate launcher for
 However, for the average user, the `Assembly Patch` is likely the better option.  
 
 **How to use:**
-1. Download and extract [this file](https://github.com/grimdoomer/FroggersAdventuresCompatFix/releases/download/1.0.0/Frogger.s.Adventures.Patch.v1.0.0.zip).  
+1. Download and extract [this file](https://github.com/grimdoomer/FroggersAdventuresCompatFix/releases/download/1.0.1/Frogger.s.Adventures.Patch.v1.0.1.zip).  
 2. Find your Frogger installation folder. (Usually `C:\Program Files (x86)\Konami\Frogger's Adventures\`)  
 3. Copy `Swampy.dll` and `SwampLauncher.exe` into the game installation folder.  
 4. To run the game, double click `SwampLauncher.exe`.  
