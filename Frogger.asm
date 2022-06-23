@@ -6,39 +6,13 @@
 ;
 ; I have a few things I learned which I wanted to jot down here, maybe they'll be useful to someone, but mainly it's here because I don't want to forget what I've learned. 
 ; 
-; Ghidra Notes:
-;  - Instruction encoding matters. If something doesn't work, find the instruction where something went wrong, and determine if it was because the instruction wasn't encoded right.
-;  - It's very easy to unbalance the stack. I should always check the stack to make sure it's good if the instruction pointer turns into something bizarre.
-;  - Hex editing assembly into a binary sucks. From now on, if when making changes in Ghidra, make sure to keep my workspace setup so I can at any time export an executable from Ghidra.
+; Notes:
+;  - Instruction encoding matters. If something doesn't work, find the instruction where something went wrong, and determine if it was because the instruction wasn't encoded the way it was expected to be, and may have taken too many (or too few) bytes.
 ;
-; The way XePatcher works is that it actually assembles this file into an ELF binary, then it reads the binary. This is by we have to use "dd" to "define dword" for each block. It's because XePatcher reads that value (start address + byte size) to apply the patch.
-; This is kind of out of nowhere, but I think it'd be awesome to make a Ghidra plugin that would let you take two binaries of the same file size, and auto-diff them + generate a .asm file. This is because it's much easier to make changes inside of Ghidra due to it being interactive with one drawback, being that you can't easily move code around. If it were possible to export / import in terms of a .asm file, it would make stuff that much easier.
-; XePatcher can't use call or jmp without moving the pointer to something into a register. The reason for this is that XePatcher turns this into a binary, and since call + jmp are relative, it isn't able to accurately determine the place to jump to.
-; Again, another reason why I should look into making a ghidra plugin for this.
-
-; Documentation of the original .exe patch we created with a hex editor: (This is most likely no longer relevant.)
-; 0x14E27 - Call our Hook_UselessFucntion function instead, which sets up thread information for the created task.
-; 0x1C6B0 - Call hook destroy task.
-; 0x1C8F5 - Delete code having to do with setjmp.
-; 0x1C932 - Nop some more code.
-; 0x1C9F9 - Call WorkerHook.
-; 0x1D016 - Prevent setting the performance counter we hijack to use as the thread id to zero.
-; 0x1D69D - Enable the FPS-cap.
-; 0x1D79B - Disable the code which writes to the other perf variable, so we can use that memory for the thread id.
-; 0xDA45A - Patch the instruction which pushes a ptr to MainMenuUpdate to the stack to instead push our main menu update hook.
-; 0x13830B - Call our SetupMainThreadId function instead of the function it called before which always returned 1.
-; 0x1383B4 - Call our music tick hook, instead of music tick directly.
-; 0x15f668 - Set g_MainThreadId to zero. The code that was here before is not meaningful, so it can be removed without issue.
-; 0x1BE454 - Hook_huProc_UselessTaskCreateFunc. This overwrites a function which was called before, but was empty. It sets up a worker thread for a given task.
-; 0x1BE4B1 - Hook_huProc_SwitchTask. This overwrites the original huProc_SwitchTask completely. When the main thread calls it, it will just run the task worker, but when another thread calls it, it will put the thread to sleep until it's time to work again, and resume the main thread.
-; 0x1BE580 - WorkerHook - This is called when it's time to switch to a task. This is what sleeps the main thread, and tells the worker thread to start working.
-; 0x1BE5EA - SetupMainThreadId. This puts the id of the main thread into g_MainThreadId, or 0x0213f16c, which is the repurposed performance counter.
-; 0x1BE600 - Hook_DestroyTask. This is called when the game wants to destroy a task. We handle this by telling the worker thread to sleep, then destroying the thread.
-; 0x1BE670 - Hook_MusicTick. This decides whether or not the music tick should be called, and then calls it. We don't call the music tick function before the main menu loads, because for whatever reason that makes the game not load.
-; 0x1BE686 - Hook_MainMenuUpdate. This is what lets us track when it's time to start letting MusicTick fire.
-; There are some extra bytes at the end which seemed to have just been removed from the exe when it was saved by Ghidra.
-; I believe this might have been some kind of compressed SecuROM code, which is no longer used because there's a No-CD fix in the version I'm testing with.
-
+; This patch uses XePatcher. XePatcher assembles this file into an ELF binary, then parses it.
+; We have to use "dd" or "define dword" for each block we'd like to replace. It's because XePatcher reads that value (start address + byte size) in order to determine how to actually apply the patch.
+; One drawback to this approach is that XePatcher can't use call or jmp without moving the pointer to something into a register.
+; The reason for this is that XePatcher turns this into a binary, and since call + jmp are relative, it isn't able to accurately determine the place to jump to.
 
 ; ////////////////////////////////////////////////////////
 ; ////////////////// Preprocessor Stuff //////////////////
@@ -121,7 +95,7 @@ _func_end_2:
 ; ////////////////////////////////////////////////////////
 ; Call the uiInit task on the main thread.
 ; Since our replacement coroutine system uses threads, it means the worker tasks will be run on different threads.
-; This is problematic for the uiInit task, because UI-related stuff should always be run on the main thread.
+; This is problematic for the uiInit task, because UI-related stuff should always be run on the main thread due to design choices of the Windows APIs.
 ; Because of this, we're taking the uiInit task out of the task system and putting it on the main thread instead.
 ; ////////////////////////////////////////////////////////
 
@@ -138,9 +112,10 @@ _func_end_3:
 ; This code resides in executable memory which was previously unused.
 ;
 ; Most of this code is here to implement our replacement coroutine system.
-; The game has a coroutine system (look it up) to manage game tasks, which is awesome. Coroutines are great for games.
-; The problem is that they created the coroutine system using setjmp and longjmp. By itself, that's fine, but the problem was it was trying to use memory which wasn't marked as stack memory as stack memory, which... caused a crash.
-; Our solution is to completely re-implement the system using threads, because that lets each task keep its own execution context (registers, etc), pause / unpause easily, etc.
+; The game has a coroutine system to manage game tasks.
+; The problem is they wanted to create a stack for each "thread". (Thread here does not refer to the OS-level thread, because the game only ever had one thread, but rather a coroutine thread.)
+; Our solution is to completely re-implement the system using actual threads, because that lets each task keep its own execution context (registers, etc), pause / unpause easily, etc, and have its own stack.
+; We suspect the reason actual threads were not originally used is because the game needed to run on Gamecube, PS2, and Xbox, and so it was likely simpler to just hack something together when most of those systems didn't have any kind of threading support.
 ; 
 ; ////////////////////////////////////////////////////////
 %define CreateEventA 005BF030h
@@ -188,7 +163,7 @@ Hook_MainLoop:
 	
 	; if (g_DeltaTimeCounter < 1000 / 60) (If there's been enough time for the next update. 60 updates a second.)
 	fcomp dword [005BF580h] ; This is the pointer to where the game keeps the value of how much time an update should take.
-	fnstsw ax ; Yeah I barely understand how this tests if the value is smaller either.
+	fnstsw ax ; Fancy floating point instruction to test if the value is less than something.
 	test ah, 5h
 	jnp _loop_skip_worker
 	
@@ -222,7 +197,7 @@ _loop_skip_worker:
 
 align 4, db 0
 Hook_huProc_TaskCreate:
-; This overwrites a function which was called before, but was empty. It sets up a worker thread for a given task.
+; This overwrites a function which was called before, but was empty. It was setup at a very convenient position. Our code sets up a worker thread for a given task.
 	push ebp
 	mov ebp, esp
 	
@@ -262,6 +237,7 @@ Hook_huProc_TaskCreate:
 align 4, db 0
 Hook_huProc_SwitchTask:
 ; This overwrites the original huProc_SwitchTask completely. When the main thread calls it, it will just run the task worker, but when another thread calls it, it will put the thread to sleep until it's time to work again, and resume the main thread.
+; This in-effect achieves the same functionality as the original system, but without using any undefined behaviour.
 	push ebp
 	mov ebp, esp
 	
@@ -395,7 +371,7 @@ align 4, db 0
 Hook_MusicTick:
 ; This decides whether or not the real MusicTick should be run.
 ; We intentionally set it to not run until after the main menu loads, because for some reason it causes the game to load at a snails pace, and crash.
-; Somehow, disabling this temporarily actually makes the game load.
+; Somehow, disabling this temporarily actually makes the game load. It was never determined why this works, it just happened to work, and we left it at that.
 	push ebp
 	mov ebp, esp
 	
@@ -553,17 +529,17 @@ _disable_maxfps_end:
 
 ; The game is weird.
 ; It was totally built in a way which could have made it run with no frame limit with minimal code changes, and it looks like they wanted to make the game work that way.
-; In fact, the previous game, Frogger Beyond, did work without a frame limit just fine, and it was made by the same team.
-; This makes me think the game's delta-time handling just wasn't tested and they forgot to finish it.
+; This makes me think the game's delta-time handling just wasn't finished or they forgot about it, so they just capped the game to 60FPS.
 ; This code here (Along with some changes in Hook_MainLoop) allow the game to run properly above 60FPS.
 
 ; However, there are some known issues which is why we don't enable this by default for releases.
-; - Lighting in the fire levels doesn't render every frame. My guess is they decided to make the lighting render in an update function somewhere.
+; - Lighting in the fire levels doesn't render every frame. My guess is they decided to make the lighting render in an tick-bound update function somewhere.
 ; - Fire boss lightning doesn't get shown at the right position / rotation. It seems it gets stuck? 
+; - There's probably some more subtle timing-related issues for bosses and enemies which might be harder to spot without looking very closely.
 
 ; The idea of the fix here is that the game does track delta-time, it's just that it needs to only run the update function 60 times a second, when it can run the render function unlimited times per second.
 ; So, we just switch out which delta-time is used depending on which function we call, and limit the number of times update can be called.
-; I'm actually amazed it was this simple.
+; It's surprising how well this works, despite the issues.
 
 %define MainLoop_HookerStart 538396h
 dd MainLoop_HookerStart - ExecutableBaseAddress
